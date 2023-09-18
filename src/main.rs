@@ -77,7 +77,8 @@ impl eframe::App for MyApp {
 
 struct RotatingTriangle {
     program: glow::Program,
-    vertex_array: glow::VertexArray,
+    vertex_array_object: glow::NativeVertexArray,
+    vertex_buffer_object: glow::NativeBuffer,
 }
 
 impl RotatingTriangle {
@@ -87,13 +88,16 @@ impl RotatingTriangle {
         unsafe {
             let program = create_program(&gl);
 
-            let vertex_array = gl
+            let vertex_buffer_object = gl.create_buffer().expect("Cannot create vertex buffer.");
+
+            let vertex_array_object = gl
                 .create_vertex_array()
                 .expect("Cannot create vertex array.");
 
             Self {
                 program,
-                vertex_array,
+                vertex_array_object,
+                vertex_buffer_object,
             }
         }
     }
@@ -102,15 +106,31 @@ impl RotatingTriangle {
         use glow::HasContext as _;
         unsafe {
             gl.delete_program(self.program);
-            gl.delete_vertex_array(self.vertex_array);
+            gl.delete_vertex_array(self.vertex_array_object);
+            gl.delete_buffer(self.vertex_buffer_object);
         }
     }
 
     fn paint(&self, gl: &glow::Context) {
         use glow::HasContext as _;
+
+        let vertices = [0.0f32, 1.0f32, -1.0f32, -1.0f32, 1.0f32, -1.0f32];
+
         unsafe {
+            let vertices_u8: &[u8] = core::slice::from_raw_parts(
+                vertices.as_ptr() as *const u8,
+                vertices.len() * core::mem::size_of::<f32>(),
+            );
+
             gl.use_program(Some(self.program));
-            gl.bind_vertex_array(Some(self.vertex_array));
+
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.vertex_buffer_object));
+            gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vertices_u8, glow::STATIC_DRAW);
+
+            gl.bind_vertex_array(Some(self.vertex_array_object));
+            gl.enable_vertex_attrib_array(0);
+            gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, 8, 0);
+
             gl.draw_arrays(glow::TRIANGLES, 0, 3)
         }
     }
@@ -127,8 +147,18 @@ unsafe fn create_program(gl: &glow::Context) -> glow::NativeProgram {
         "#version 330"
     };
 
-    let vertex_shader = create_shader(gl, glow::VERTEX_SHADER, VERTEX_SHADER_SOURCE, shader_version);
-    let fragment_shader = create_shader(gl, glow::FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE, shader_version);
+    let vertex_shader = create_shader(
+        gl,
+        glow::VERTEX_SHADER,
+        VERTEX_SHADER_SOURCE,
+        shader_version,
+    );
+    let fragment_shader = create_shader(
+        gl,
+        glow::FRAGMENT_SHADER,
+        FRAGMENT_SHADER_SOURCE,
+        shader_version,
+    );
 
     gl.attach_shader(program, vertex_shader);
     gl.attach_shader(program, fragment_shader);
@@ -149,7 +179,12 @@ unsafe fn create_program(gl: &glow::Context) -> glow::NativeProgram {
     program
 }
 
-unsafe fn create_shader(gl: &glow::Context, shader_type: u32, shader_source: &str, shader_version: &str) -> glow::NativeShader {
+unsafe fn create_shader(
+    gl: &glow::Context,
+    shader_type: u32,
+    shader_source: &str,
+    shader_version: &str,
+) -> glow::NativeShader {
     use glow::HasContext as _;
 
     let shader = gl
@@ -167,20 +202,17 @@ unsafe fn create_shader(gl: &glow::Context, shader_type: u32, shader_source: &st
 }
 
 const VERTEX_SHADER_SOURCE: &str = r#"
-    const vec2 verts[3] = vec2[3](
-        vec2(0.0, 1.0),
-        vec2(-1.0, -1.0),
-        vec2(1.0, -1.0)
-    );
     const vec4 colors[3] = vec4[3](
         vec4(1.0, 0.0, 0.0, 1.0),
         vec4(0.0, 1.0, 0.0, 1.0),
         vec4(0.0, 0.0, 1.0, 1.0)
     );
+
+    layout(location = 0) in vec4 position;
     out vec4 v_color;
     void main() {
         v_color = colors[gl_VertexID];
-        gl_Position = vec4(verts[gl_VertexID], 0.0, 1.0);
+        gl_Position = position;
     }
 "#;
 
