@@ -17,7 +17,6 @@ fn main() -> eframe::Result<()> {
 }
 struct MyApp {
     rotatin_triangle: Arc<Mutex<RotatingTriangle>>,
-    angle: f32,
 }
 
 impl MyApp {
@@ -28,17 +27,13 @@ impl MyApp {
             .expect("You need to run eframe with glow backend");
         Self {
             rotatin_triangle: Arc::new(Mutex::new(RotatingTriangle::new(gl))),
-            angle: 0.0,
         }
     }
 
     fn custom_painting(&mut self, ui: &mut egui::Ui) {
-        let (rect, response) =
+        let (rect, _response) =
             ui.allocate_exact_size(egui::Vec2::splat(300.0), egui::Sense::drag());
 
-        self.angle += response.drag_delta().x * 0.01;
-
-        let angle = self.angle;
         let rotating_triangle = self.rotatin_triangle.clone();
 
         let callback = egui::PaintCallback {
@@ -47,7 +42,7 @@ impl MyApp {
                 rotating_triangle
                     .lock()
                     .expect("Cannot lock mutex to paint triangle.")
-                    .paint(painter.gl(), angle);
+                    .paint(painter.gl());
             })),
         };
         ui.painter().add(callback);
@@ -67,7 +62,6 @@ impl eframe::App for MyApp {
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
                 self.custom_painting(ui);
             });
-            ui.label("Drag to rotate!")
         });
     }
 
@@ -152,14 +146,10 @@ impl RotatingTriangle {
         }
     }
 
-    fn paint(&self, gl: &glow::Context, angle: f32) {
+    fn paint(&self, gl: &glow::Context) {
         use glow::HasContext as _;
         unsafe {
             gl.use_program(Some(self.program));
-            gl.uniform_1_f32(
-                gl.get_uniform_location(self.program, "u_angle").as_ref(),
-                angle,
-            );
             gl.bind_vertex_array(Some(self.vertex_array));
             gl.draw_arrays(glow::TRIANGLES, 0, 3)
         }
@@ -179,11 +169,9 @@ r#"
         vec4(0.0, 0.0, 1.0, 1.0)
     );
     out vec4 v_color;
-    uniform float u_angle;
     void main() {
         v_color = colors[gl_VertexID];
         gl_Position = vec4(verts[gl_VertexID], 0.0, 1.0);
-        gl_Position.x *= cos(u_angle);
     }
 "#;
 
