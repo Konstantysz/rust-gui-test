@@ -79,6 +79,7 @@ struct RotatingTriangle {
     program: glow::Program,
     vertex_array_object: glow::NativeVertexArray,
     vertex_buffer_object: glow::NativeBuffer,
+    index_buffer_object: glow::NativeBuffer,
 }
 
 impl RotatingTriangle {
@@ -94,10 +95,13 @@ impl RotatingTriangle {
                 .create_vertex_array()
                 .expect("Cannot create vertex array.");
 
+            let index_buffer_object = gl.create_buffer().expect("Cannot create index buffer.");
+
             Self {
                 program,
                 vertex_array_object,
                 vertex_buffer_object,
+                index_buffer_object,
             }
         }
     }
@@ -114,15 +118,20 @@ impl RotatingTriangle {
     fn paint(&self, gl: &glow::Context) {
         use glow::HasContext as _;
 
-        let vertices = [0.0f32, 1.0f32, -1.0f32, -1.0f32, 1.0f32, -1.0f32];
+        let vertices = [
+            -0.5f32, -0.5f32, 0.5f32, -0.5f32, 0.5f32, 0.5f32, -0.5f32, 0.5f32,
+        ];
+        let indices = [0u32, 1u32, 2u32, 2u32, 3u32, 0u32];
 
         unsafe {
             let vertices_u8: &[u8] = core::slice::from_raw_parts(
                 vertices.as_ptr() as *const u8,
                 vertices.len() * core::mem::size_of::<f32>(),
             );
-
-            gl.use_program(Some(self.program));
+            let indices_u8: &[u8] = core::slice::from_raw_parts(
+                indices.as_ptr() as *const u8,
+                indices.len() * core::mem::size_of::<u32>(),
+            );
 
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.vertex_buffer_object));
             gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vertices_u8, glow::STATIC_DRAW);
@@ -131,7 +140,12 @@ impl RotatingTriangle {
             gl.enable_vertex_attrib_array(0);
             gl.vertex_attrib_pointer_f32(0, 2, glow::FLOAT, false, 8, 0);
 
-            gl.draw_arrays(glow::TRIANGLES, 0, 3)
+            gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(self.index_buffer_object));
+            gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, indices_u8, glow::STATIC_DRAW);
+
+            gl.use_program(Some(self.program));
+
+            gl.draw_elements(glow::TRIANGLES, indices.len() as i32, glow::UNSIGNED_INT, 0);
         }
     }
 }
@@ -202,10 +216,11 @@ unsafe fn create_shader(
 }
 
 const VERTEX_SHADER_SOURCE: &str = r#"
-    const vec4 colors[3] = vec4[3](
+    const vec4 colors[4] = vec4[4](
         vec4(1.0, 0.0, 0.0, 1.0),
         vec4(0.0, 1.0, 0.0, 1.0),
-        vec4(0.0, 0.0, 1.0, 1.0)
+        vec4(0.0, 0.0, 1.0, 1.0),
+        vec4(0.0, 0.0, 0.0, 1.0)
     );
 
     layout(location = 0) in vec4 position;
