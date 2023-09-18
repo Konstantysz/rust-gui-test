@@ -99,39 +99,9 @@ impl RotatingTriangle {
         unsafe {
             let program = gl.create_program().expect("Cannot create program.");
 
-            let (vertex_shader_source, fragment_shader_source) = (
-                r#"
-                    const vec2 verts[3] = vec2[3](
-                        vec2(0.0, 1.0),
-                        vec2(-1.0, -1.0),
-                        vec2(1.0, -1.0)
-                    );
-                    const vec4 colors[3] = vec4[3](
-                        vec4(1.0, 0.0, 0.0, 1.0),
-                        vec4(0.0, 1.0, 0.0, 1.0),
-                        vec4(0.0, 0.0, 1.0, 1.0)
-                    );
-                    out vec4 v_color;
-                    uniform float u_angle;
-                    void main() {
-                        v_color = colors[gl_VertexID];
-                        gl_Position = vec4(verts[gl_VertexID], 0.0, 1.0);
-                        gl_Position.x *= cos(u_angle);
-                    }
-                "#,
-                r#"
-                    precision mediump float;
-                    in vec4 v_color;
-                    out vec4 out_color;
-                    void main() {
-                        out_color = v_color;
-                    }
-                "#,
-            );
-
             let shader_sources = [
-                (glow::VERTEX_SHADER, vertex_shader_source),
-                (glow::FRAGMENT_SHADER, fragment_shader_source),
+                (glow::VERTEX_SHADER, VERTEX_SHADER_SOURCE),
+                (glow::FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE),
             ];
 
             let shaders: Vec<_> = shader_sources
@@ -195,3 +165,34 @@ impl RotatingTriangle {
         }
     }
 }
+
+const VERTEX_SHADER_SOURCE: &str = 
+r#"
+    const vec2 verts[3] = vec2[3](
+        vec2(0.0, 1.0),
+        vec2(-1.0, -1.0),
+        vec2(1.0, -1.0)
+    );
+    const vec4 colors[3] = vec4[3](
+        vec4(1.0, 0.0, 0.0, 1.0),
+        vec4(0.0, 1.0, 0.0, 1.0),
+        vec4(0.0, 0.0, 1.0, 1.0)
+    );
+    out vec4 v_color;
+    uniform float u_angle;
+    void main() {
+        v_color = colors[gl_VertexID];
+        gl_Position = vec4(verts[gl_VertexID], 0.0, 1.0);
+        gl_Position.x *= cos(u_angle);
+    }
+"#;
+
+const FRAGMENT_SHADER_SOURCE: &str =
+r#"
+    precision mediump float;
+    in vec4 v_color;
+    out vec4 out_color;
+    void main() {
+        out_color = v_color;
+    }
+"#;
