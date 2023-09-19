@@ -32,7 +32,7 @@ impl MyApp {
 
     fn custom_painting(&mut self, ui: &mut egui::Ui) {
         let (rect, _response) =
-            ui.allocate_exact_size(egui::Vec2::splat(300.0), egui::Sense::drag());
+            ui.allocate_exact_size(egui::Vec2::splat(300.0), egui::Sense::hover());
 
         let rotating_triangle = self.rotatin_triangle.clone();
 
@@ -80,6 +80,7 @@ struct RotatingTriangle {
     vertex_array_object: glow::NativeVertexArray,
     vertex_buffer_object: glow::NativeBuffer,
     index_buffer_object: glow::NativeBuffer,
+    counter: f32,
 }
 
 impl RotatingTriangle {
@@ -102,6 +103,7 @@ impl RotatingTriangle {
                 vertex_array_object,
                 vertex_buffer_object,
                 index_buffer_object,
+                counter: 0.0f32,
             }
         }
     }
@@ -115,7 +117,7 @@ impl RotatingTriangle {
         }
     }
 
-    fn paint(&self, gl: &glow::Context) {
+    fn paint(&mut self, gl: &glow::Context) {
         use glow::HasContext as _;
 
         let vertices = [
@@ -145,7 +147,16 @@ impl RotatingTriangle {
 
             gl.use_program(Some(self.program));
 
+            let location = gl.get_uniform_location(self.program, "u_color");
+            gl.uniform_4_f32(location.as_ref(), self.counter, 0.2, 0.2, 1.0);
+
             gl.draw_elements(glow::TRIANGLES, indices.len() as i32, glow::UNSIGNED_INT, 0);
+            
+            if self.counter > 1.0f32 {
+                self.counter = 0.0f32;
+            }
+
+            self.counter += 0.05f32;
         }
     }
 }
@@ -216,26 +227,19 @@ unsafe fn create_shader(
 }
 
 const VERTEX_SHADER_SOURCE: &str = r#"
-    const vec4 colors[4] = vec4[4](
-        vec4(1.0, 0.0, 0.0, 1.0),
-        vec4(0.0, 1.0, 0.0, 1.0),
-        vec4(0.0, 0.0, 1.0, 1.0),
-        vec4(0.0, 0.0, 0.0, 1.0)
-    );
-
     layout(location = 0) in vec4 position;
-    out vec4 v_color;
+
     void main() {
-        v_color = colors[gl_VertexID];
         gl_Position = position;
     }
 "#;
 
 const FRAGMENT_SHADER_SOURCE: &str = r#"
-    precision mediump float;
-    in vec4 v_color;
-    out vec4 out_color;
+    layout(location = 0) out vec4 color;
+
+    uniform vec4 u_color;
+
     void main() {
-        out_color = v_color;
+        color = u_color;
     }
 "#;
